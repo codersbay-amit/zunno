@@ -1,5 +1,5 @@
 import ollama
-def prompt():
+def prompt(image_path):
     return ollama.chat(
 	model="llava",
 	messages=[
@@ -10,7 +10,7 @@ def prompt():
                               such as colors, textures, and composition, that should be preserved in the generated background
 			      note: explain under 60 words only
                         ''',
-			'images': ['image.png']
+			'images': [image_path]
 		}
 	]
 )['message']['content']

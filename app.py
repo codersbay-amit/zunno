@@ -1,10 +1,14 @@
 import os
+import requests
+import base64
 from flask import Flask, request, jsonify, send_file
 from PIL import Image,ImageOps
 from io import BytesIO
 from canny import outpaint
+import io
 from rembg.bg import remove
 from llava import prompt
+from image_utils import apparel
 # Initialize Flask app
 app = Flask(__name__)
 def image_to_base64(image: Image) -> str:
@@ -68,12 +72,46 @@ def add_padding(img):
     return square_img
     # Save the imag 
 # Flask route to handle image generation requests
-@app.route("/generate_outpaint", methods=["POST"])
+@app.route("/non_apparel", methods=["POST"])
 def generate_outpaint_route():
     try:
         # Get the input data from the request
         data = request
 
+
+        negative_prompt ="""Low quality, blurry, Do not include any distracting patterns, heavy textures, 
+                      bright colors, or elements that clash with the product. Avoid busy designs, shadows, gradients, or any elements that make the
+                      background look overly complex or unprofessional. The extended background
+                      should remain clean, neutral, and simple, maintaining focus on the product."""
+
+
+        # Get image and mask from the request (they are expected to be files)
+        image_file_url = request.form['image_url']
+        background_image_url = request.form['background_url']
+
+        # Open the image and mask
+
+        image = add_padding(Image.open(load_image_from_url(image_file_url)))
+        #mask = ImageOps.invert(remove(image,only_mask=True) )
+        #mask.show()
+        # Generate the outpainted image
+        background_image=load_image_from_url(image_file_url)
+        background_image.save('image.png')
+        prmpt=prompt('image.png')
+        outpainted_image=outpaint(image,prmpt,negative_prompt)
+        base64_string = image_to_base64(outpainted_image)
+        return jsonify({'image_base64':base64_string})
+        # Return the image as a JSON response with the Base64 string
+
+    except Exception as e:
+        # Handle any errors during processing
+            return jsonify({"error": str(e)}), 500
+
+@app.route("/apparel", methods=["POST"])
+def generate_apparel():
+    try:
+        # Get the input data from the request
+        data = request
         
         negative_prompt ="""Low quality, blurry, Do not include any distracting patterns, heavy textures, 
                       bright colors, or elements that clash with the product. Avoid busy designs, shadows, gradients, or any elements that make the
@@ -82,23 +120,20 @@ def generate_outpaint_route():
         
 
         # Get image and mask from the request (they are expected to be files)
-        image_file_url = request.form['image_url']
+        target_url = request.form['cloth_url']
+        source_url = request.form['avatar_url']
         background_image_url = request.form['background_url']
         
         # Open the image and mask
+        source=load_image_from_url(source_url)
+        target=load_image_from_url(target_url)
+        background=load_image_from_url(background_image_url)
         
-        image = add_padding(Image.open(load_image_from_url(image_file_url)))
-        #mask = ImageOps.invert(remove(image,only_mask=True) )
-        #mask.show()
-        # Generate the outpainted image
-        background_image=load_image_from_url(image_file_url)
-        background_image.save('image.png')
-        prmpt=prompt()
-        base64_string = image_to_base64(outpainted_image)
-        return jsonify({'image_base64':base64_string})
-        # Return the image as a JSON response with the Base64 string
-
+        result=apparel(source,target,background)
+        base64_string = image_to_base64(result)
+        return jsonify({'image_base64':base64_string}),200
     except Exception as e:
+            print(e)
         # Handle any errors during processing
             return jsonify({"error": str(e)}), 500
 # Run the Flask app

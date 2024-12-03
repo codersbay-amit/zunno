@@ -1,0 +1,10 @@
+import requests
+from rembg.bg import remove
+from PIL import Image
+
+from nsfw-face-swap.app import swap_face
+
+
+def apparal(source,target,background):
+    
+    output_path=swap_face(source,target)
