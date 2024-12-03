@@ -2,11 +2,36 @@ import os
 from flask import Flask, request, jsonify, send_file
 from PIL import Image,ImageOps
 from io import BytesIO
-from canny import generate_outpaint
+from canny import outpaint
 from rembg.bg import remove
-
+from llava import prompt
 # Initialize Flask app
 app = Flask(__name__)
+def image_to_base64(image: Image) -> str:
+    """
+    Converts a PIL Image to a Base64-encoded string.
+    """
+    img_byte_arr = io.BytesIO()
+    image.save(img_byte_arr, format='PNG')  # Change format to 'JPEG' if necessary
+    img_byte_arr.seek(0)  # Rewind the byte stream
+    
+    # Encode the image bytes to Base64 and return as a string
+    base64_string = base64.b64encode(img_byte_arr.read()).decode('utf-8')
+    return base64_string
+def load_image_from_url(url):
+    # Send a GET request to the URL
+    response = requests.get(url)
+    
+    # Ensure the request was successful (status code 200)
+    if response.status_code == 200:
+        # Convert the image content into a byte stream
+        img_data = BytesIO(response.content)
+        
+        # Open the image with PIL
+        img = Image.open(img_data).convert('RGB')
+        return img
+    else:
+        raise Exception(f"Failed to retrieve image from URL: {url}, Status Code: {response.status_code}")
 
 # Helper function to convert image to BytesIO (for Flask response)
 def image_to_bytes(image: Image):
@@ -15,6 +40,33 @@ def image_to_bytes(image: Image):
     img_byte_arr.seek(0)
     return img_byte_arr
 
+from PIL import Image, ImageOps
+
+def add_padding(img):
+    # Open the image
+    
+    
+    # Get the original width and height of the image
+    width, height = img.size
+    
+    # Calculate padding for each side to make the image square
+    if width == height:
+        print("The image is already square.")
+        return img
+    
+    # Determine the size of the new square image (max of width or height)
+    new_size = max(width, height)
+    
+    # Calculate padding (in pixels) to add on each side
+    padding_left = (new_size - width) // 2
+    padding_top = (new_size - height) // 2
+    padding_right = new_size - width - padding_left
+    padding_bottom = new_size - height - padding_top
+    
+    # Add padding to the image to make it square with white background
+    square_img = ImageOps.expand(img, (padding_left, padding_top, padding_right, padding_bottom), fill=(255, 255, 255))  # White padding
+    return square_img
+    # Save the imag 
 # Flask route to handle image generation requests
 @app.route("/generate_outpaint", methods=["POST"])
 def generate_outpaint_route():
@@ -22,30 +74,33 @@ def generate_outpaint_route():
         # Get the input data from the request
         data = request
 
-        prompt = data.form.get('prompt')
-        negative_prompt =   "Low quality, blurry",
+        
+        negative_prompt ="""Low quality, blurry, Do not include any distracting patterns, heavy textures, 
+                      bright colors, or elements that clash with the product. Avoid busy designs, shadows, gradients, or any elements that make the
+                      background look overly complex or unprofessional. The extended background
+                      should remain clean, neutral, and simple, maintaining focus on the product."""
         
 
         # Get image and mask from the request (they are expected to be files)
-        image_file = request.files['image']
-       
-
+        image_file_url = request.form['image_url']
+        background_image_url = request.form['background_url']
+        
         # Open the image and mask
-        image = Image.open(image_file.stream).convert("RGB")
-        mask = ImageOps.invert(remove(image,only_mask=True) ) # Assuming the mask is grayscale
-        mask.show()
+        
+        image = add_padding(Image.open(load_image_from_url(image_file_url)))
+        #mask = ImageOps.invert(remove(image,only_mask=True) )
+        #mask.show()
         # Generate the outpainted image
-        outpainted_image = generate_outpaint(prompt, negative_prompt, image, mask)
-
-        # Convert the result image to a byte stream
-        img_byte_arr = image_to_bytes(outpainted_image)
-
-        # Return the image as a response
-        return send_file(img_byte_arr, mimetype='image/png')
+        background_image=load_image_from_url(image_file_url)
+        background_image.save('image.png')
+        prmpt=prompt()
+        base64_string = image_to_base64(outpainted_image)
+        return jsonify({'image_base64':base64_string})
+        # Return the image as a JSON response with the Base64 string
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
+        # Handle any errors during processing
+            return jsonify({"error": str(e)}), 500
 # Run the Flask app
 if __name__ == "__main__":
     app.run(debug=True)
