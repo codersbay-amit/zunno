@@ -60,6 +60,8 @@ class Predictor(BasePredictor):
                 result,
                 paste_back=True
             )
+            result=cv2.cvtColor(result, cv2.COLOR_BGR2RGB)
+            print(result.shape)
             output=Image.fromarray(result)
             return output
         except Exception as e:
