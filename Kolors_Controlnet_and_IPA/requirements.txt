@@ -1,0 +1,11 @@
+accelerate
+diffusers
+invisible_watermark
+torch
+transformers
+sentencepiece
+torchvision
+timm
+einops
+scipy
+onnxruntime-gpu
