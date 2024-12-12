@@ -1,10 +1,11 @@
 import os
+from poster_template import generate_template
 import requests
 import base64
 from flask import Flask, request, jsonify, send_file
 from PIL import Image,ImageOps
 from io import BytesIO
-#from canny import outpaint
+from canny import outpaint
 import io
 from rembg.bg import remove
 from llava import prompt
@@ -12,6 +13,7 @@ from image_utils import apparel
 from flask_cors import CORS
 app = Flask(__name__)
 CORS(app)
+
 def image_to_base64(image: Image) -> str:
     """
     Converts a PIL Image to a Base64-encoded string.
@@ -138,8 +140,6 @@ def generate_apparel():
             print(e)
         # Handle any errors during processing
             return jsonify({"error": str(e)}), 500
-
-
 # Run the Flask app
 if __name__ == "__main__":
     app.run(debug=True)
